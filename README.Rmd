@@ -1,7 +1,7 @@
 ---
 title: "Trends in Ecology Jobs by Analyzing Ecolog Posts With R"
 author: "Sheng Pei Wang"
-date: "October 24, 2018"
+date: "Nov 13, 2018"
 output: html_document
 ---
 
@@ -10,22 +10,22 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
   
 # Why and what am I doing here?
-### Back story
-I have subscribed for the Ecolog listserv for a long time, hoping for the perfect position just for me. But given the growing competition for the stagnating job market in academia, I decided to plunge into the "real world" to pursue my interests in understanding the world through thinking, experimentation, and analysis. Before I leave my academic ecologist dream behind, I want to figure out whether this one source of data supports the broader trend in the academic job market. Specificall, I want to address these three questions:   
+## Back story
+I have subscribed for the Ecolog listserv for a long time, hoping for the perfect position just for me. But given the growing competition for the stagnating job market in academia, I decided to plunge into the "real world" to pursue my interests in understanding the world through thinking, experimentation, and analysis. Before I leave my academic evolutionary ecologist dream behind, I want to figure out whether this one source of data supports the broader trend in the academic job market. Specificall, I want to address these three questions:   
 
-### Questions
+## Questions
 1. Is there an over supply? In other words, are lower level positions more abundant than higher level positions. If so, I should observe number of posts for PhD > postdoc > faculty    
 2. Is there growing supply of PhD over time? This should show up as an increase in numbers of PhD or postdoc positions.     
-3. On the other hand, is the job market stagnating? This would be represened by faculty level positions being constant over time?
+3. On the other hand, is the job market stagnating? This would be represented by faculty level positions being constant over time?
 
-### Methods
-All of ecolog's posts are available online, dating back to 2000. This makes this a great data source, but the amount of data is not trivial to process. I decided to focus only on the titles of the posts, because it is usually easy to tell what audience the posts target.   
+## Methods
+All of ecolog's posts are available online, dating back to 2000. This makes this a great data source, but the amount of data is not trivial to process. I decided to focus only on the titles of the posts, because it is usually pretty easy to tell what audience the posts target.   
 To get the data, I need to **scrap the website** for titles of every posts and to decide the target level (PhD/postdoc/faculty) of each post using **text mining**.
 
 # Part 1. Getting the data
 
-## This will require setting up the R environment
-```{r}
+###Set up the R environment:
+```{r, message = F}
 library('rvest')    # Parsing of HTML/XML files 
 library(tidyverse)  # General-purpose data wrangling
 library(stringr)    # String manipulation
@@ -37,14 +37,16 @@ library(rebus)      # Verbose regular expressions
 library(lubridate)  # Eases DateTime manipulation
 ```
 
+## Creating the list of webpages to scrap
 
-The actual R code fiel named "Fun Ecolog Data Scrapping Project.R" has the codes with which I explored how to get the data. But the simple story is this:
+The actual R code file named "Fun Ecolog Data Scrapping Project.R" has the codes with which I explored how to get the data. But the simple story is this:
 
-I notice that the posts were stored on different pages grouped by weeks, and the master list is at https://listserv.umd.edu/archives/ecolog-l.html. So I can first scrap the master lists to get the url's for all the weekly lists:
+I notice that the posts were stored on different pages grouped by weeks, and the master list is at https://listserv.umd.edu/archives/ecolog-l.html. So I can scrap the master list to get the weekly lists' url's, and then I can scrape the weekly lists to get the titles of every post:
 
 
 ```{r}
 page_archive <- read_html("https://listserv.umd.edu/archives/ecolog-l.html")
+# Some times this command end up with an error message of "Timeout", because the archive's server is picky about the connections. My home network tend to do this. The only advice I have is to be patient and maybe try a different network if possible.
 
 # I noticed that by interacting with html source code of the full list, all the weekly links are stored under the "li" node
 pages_info  <- page_archive %>%  html_nodes("li")  # Scrap the weekly link info from main page
@@ -57,34 +59,31 @@ list_of_pages <- str_c('https://listserv.umd.edu', urls)
 head(list_of_pages)
 ```
 
+## A function to get the relevant information 
+### (titles posted in the last 20 years)
 To  actually get the data from the urls, I wrote a small functions to get the necessary information from each page. Then apply the function to the list of urls.
 ```{r}
 #I need to create a custom function that gets all postings from each page
 ecolog_p <- function(url){
   webpage <- read_html(url)
   Sys.sleep(0.2)
-  webpage %>% html_nodes("ul:nth-child(3) a") %>%
+  webpage %>% html_nodes("tr:nth-child(3) a") %>%
               html_text
 }
-# Here is an example of how this works. I'm not scrapping the entire list here, because it takes about two hours to run with good internet connections.
-# ecolog_postings_1_25 <- lapply(list_of_pages[1:25], ecolog_p)
+
+# ecolog_postings<- lapply(list_of_pages, ecolog_p)
 ```
+
+I commented out the last line of code so it's not run here, because it takes about 2 hours to get all the data with a good internet connections. If anyone were to run this line of code, I recommend breaking it down into chuncks.
 
 # Part 2. Text mining of the tiles
 The idea behind this section is simple: I want to determine if a post is advertising a PhD, postdoc, or faculty position. 
 
-I will be using a sample page first from the first week of 2018:
-```{r}
-url <- "https://listserv.umd.edu/cgi-bin/wa?A1=ind1804a&L=ecolog-l"
-webpage <- read_html(url)
-page_4i18 <- html_text(html_nodes(webpage,"ul:nth-child(3) a")) #First download the webpage
-```
 
-As of today, the archive is down, and no historical posts can be viewed, I will post the data I have downloaded a few months ago later. 
-
-Characterizing the target of a post can be complicated, but I don't need to be precise about every post here given the amount of posts (more than 10,000 across over 18 years). So I took a simple approach of counting the occurance of key words such as PhD to determine the abundance of each level of posts. By reading through a few months worth of posts myselt, I confirmed that the key words are good indicator of the content of the posts, and that they are rarely repeated in a single title.
+## A function to characterize the type of positions from only titles
+Characterizing the target of a post can be complicated, but I don't need to be precise about every post here given the amount of posts (more than 10,000 across over 18 years). So I took a simple approach of counting the occurrence of key words such as PhD to determine the abundance of each level of posts. By reading through a few months' worth of posts myself, I confirmed that the key words are good indicator of the content of the posts, and that they are rarely repeated in a single title.
 ```{r}
-#I wrote another function to count the apearance of different key words.
+#I wrote another function to count the appearance of different key words.
 position_breakdown <- function(x){
   x = str_to_lower(x)
   u = sum(str_count(x, "reu|intern|volunteer"))
@@ -95,12 +94,27 @@ position_breakdown <- function(x){
   o = sum(str_count(x, "technician|assistant|manager"))
   l = length(x)
   y = data.frame(undergrad = u, ms = m, phd = phd, postdoc = po, 
-                faculty = f, otherjob = o, l = l)
+                faculty = f, otherjob = o, total = l)
   y}
 
-# An example of using this function.
+```
+## Get a small sample dataset:
+I will be using a sample page from the first week of 2018:
+```{r}
+url <- "https://listserv.umd.edu/cgi-bin/wa?A1=ind1804a&L=ecolog-l"
+webpage <- read_html(url)
+page_4i18 <- html_text(html_nodes(webpage,"tr:nth-child(3) a")) #First download the webpage
+# A quick note that I used the web tool "Selector Gadget"" to generate the CSS selectors. i.e. the ""tr:nth-child(3) a"" part
+```
+
+## Look at data using the sample dataset:
+```{r}
+# An example of using the position_breakdown function.
 position_breakdown(page_4i18)
 ```
 
-# Part 3. Analysing the data
-I'm still working on this part of the project, so stay tuned! 
+As for this particular week, you can see that their are increasing numbers of jobs with increasing training, from undergrad to master to phD to postdoc positions. However, this trend stops at the postdoc level, and there are only 4 faculty positions. **The munber of posdoc positions is 3.5 times that of faculty positions in this one week, supporting my first hyothesis that there is a oversupply of phds** I will analyze the full dataset in the next section to test whether this trend holds.
+
+
+# Part 3. Analyzing the data
+I'm still cleaning the code up, so please stay tuned. 

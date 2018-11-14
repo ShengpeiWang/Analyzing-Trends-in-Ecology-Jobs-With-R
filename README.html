@@ -11,7 +11,6 @@
 
 <meta name="author" content="Sheng Pei Wang" />
 
-<meta name="date" content="2018-10-24" />
 
 <title>Trends in Ecology Jobs by Analyzing Ecolog Posts With R</title>
 
@@ -121,73 +120,53 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">Trends in Ecology Jobs by Analyzing Ecolog Posts With R</h1>
 <h4 class="author"><em>Sheng Pei Wang</em></h4>
-<h4 class="date"><em>October 24, 2018</em></h4>
+<h4 class="date"><em>Nov 13, 2018</em></h4>
 
 </div>
 
 
 <div id="why-and-what-am-i-doing-here" class="section level1">
 <h1>Why and what am I doing here?</h1>
-<div id="back-story" class="section level3">
-<h3>Back story</h3>
-<p>I have subscribed for the Ecolog listserv for a long time, hoping for the perfect position just for me. But given the growing competition for the stagnating job market in academia, I decided to plunge into the “real world” to pursue my interests in understanding the world through thinking, experimentation, and analysis. Before I leave my academic ecologist dream behind, I want to figure out whether this one source of data supports the broader trend in the academic job market. Specificall, I want to address these three questions:</p>
+<div id="back-story" class="section level2">
+<h2>Back story</h2>
+<p>I have subscribed for the Ecolog listserv for a long time, hoping for the perfect position just for me. But given the growing competition for the stagnating job market in academia, I decided to plunge into the “real world” to pursue my interests in understanding the world through thinking, experimentation, and analysis. Before I leave my academic evolutionary ecologist dream behind, I want to figure out whether this one source of data supports the broader trend in the academic job market. Specificall, I want to address these three questions:</p>
 </div>
-<div id="questions" class="section level3">
-<h3>Questions</h3>
+<div id="questions" class="section level2">
+<h2>Questions</h2>
 <ol style="list-style-type: decimal">
 <li>Is there an over supply? In other words, are lower level positions more abundant than higher level positions. If so, I should observe number of posts for PhD &gt; postdoc &gt; faculty<br />
 </li>
 <li>Is there growing supply of PhD over time? This should show up as an increase in numbers of PhD or postdoc positions.<br />
 </li>
-<li>On the other hand, is the job market stagnating? This would be represened by faculty level positions being constant over time?</li>
+<li>On the other hand, is the job market stagnating? This would be represented by faculty level positions being constant over time?</li>
 </ol>
 </div>
-<div id="methods" class="section level3">
-<h3>Methods</h3>
-<p>All of ecolog’s posts are available online, dating back to 2000. This makes this a great data source, but the amount of data is not trivial to process. I decided to focus only on the titles of the posts, because it is usually easy to tell what audience the posts target.<br />
+<div id="methods" class="section level2">
+<h2>Methods</h2>
+<p>All of ecolog’s posts are available online, dating back to 2000. This makes this a great data source, but the amount of data is not trivial to process. I decided to focus only on the titles of the posts, because it is usually pretty easy to tell what audience the posts target.<br />
 To get the data, I need to <strong>scrap the website</strong> for titles of every posts and to decide the target level (PhD/postdoc/faculty) of each post using <strong>text mining</strong>.</p>
 </div>
 </div>
 <div id="part-1.-getting-the-data" class="section level1">
 <h1>Part 1. Getting the data</h1>
-<div id="this-will-require-setting-up-the-r-environment" class="section level2">
-<h2>This will require setting up the R environment</h2>
-<pre class="r"><code>library('rvest')    # Parsing of HTML/XML files </code></pre>
-<pre><code>## Loading required package: xml2</code></pre>
-<pre class="r"><code>library(tidyverse)  # General-purpose data wrangling</code></pre>
-<pre><code>## -- Attaching packages ------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
-<pre><code>## v ggplot2 2.2.1     v purrr   0.2.4
-## v tibble  1.4.1     v dplyr   0.7.4
-## v tidyr   0.8.0     v stringr 1.2.0
-## v readr   1.1.1     v forcats 0.3.0</code></pre>
-<pre><code>## -- Conflicts ---------------------------------------------------------- tidyverse_conflicts() --
-## x dplyr::filter()         masks stats::filter()
-## x readr::guess_encoding() masks rvest::guess_encoding()
-## x dplyr::lag()            masks stats::lag()
-## x purrr::pluck()          masks rvest::pluck()</code></pre>
-<pre class="r"><code>library(stringr)    # String manipulation
+<div id="set-up-the-r-environment" class="section level3">
+<h3>Set up the R environment:</h3>
+<pre class="r"><code>library('rvest')    # Parsing of HTML/XML files 
+library(tidyverse)  # General-purpose data wrangling
+library(stringr)    # String manipulation
 library(ggplot2)
 
 library(tidytext)       # provides additional text mining functions
 
-library(rebus)      # Verbose regular expressions</code></pre>
-<pre><code>## 
-## Attaching package: 'rebus'</code></pre>
-<pre><code>## The following object is masked from 'package:stringr':
-## 
-##     regex</code></pre>
-<pre><code>## The following object is masked from 'package:ggplot2':
-## 
-##     alpha</code></pre>
-<pre class="r"><code>library(lubridate)  # Eases DateTime manipulation</code></pre>
-<pre><code>## 
-## Attaching package: 'lubridate'</code></pre>
-<pre><code>## The following object is masked from 'package:base':
-## 
-##     date</code></pre>
-<p>The actual R code fiel named “Fun Ecolog Data Scrapping Project.R” has the codes with which I explored how to get the data. But the simple story is this:</p>
-<p>I notice that the posts were stored on different pages grouped by weeks, and the master list is at <a href="https://listserv.umd.edu/archives/ecolog-l.html" class="uri">https://listserv.umd.edu/archives/ecolog-l.html</a>. So I can first scrap the master lists to get the url’s for all the weekly lists:</p>
+library(rebus)      # Verbose regular expressions
+library(lubridate)  # Eases DateTime manipulation</code></pre>
+</div>
+<div id="creating-the-list-of-webpages-to-scrap" class="section level2">
+<h2>Creating the list of webpages to scrap</h2>
+<p>The actual R code file named “Fun Ecolog Data Scrapping Project.R” has the codes with which I explored how to get the data. But the simple story is this:</p>
+<p>I notice that the posts were stored on different pages grouped by weeks, and the master list is at <a href="https://listserv.umd.edu/archives/ecolog-l.html" class="uri">https://listserv.umd.edu/archives/ecolog-l.html</a>. So I can scrap the master list to get the weekly lists’ url’s, and then I can scrape the weekly lists to get the titles of every post:</p>
 <pre class="r"><code>page_archive &lt;- read_html(&quot;https://listserv.umd.edu/archives/ecolog-l.html&quot;)
+# Some times this command end up with an error message of &quot;Timeout&quot;, because the archive's server is picky about the connections. My home network tend to do this. The only advice I have is to be patient and maybe try a different network if possible.
 
 # I noticed that by interacting with html source code of the full list, all the weekly links are stored under the &quot;li&quot; node
 pages_info  &lt;- page_archive %&gt;%  html_nodes(&quot;li&quot;)  # Scrap the weekly link info from main page
@@ -198,34 +177,38 @@ urls &lt;- urls[-c(1:4)] # remove the first 4 items that are not related to our 
 # Making the list of urls
 list_of_pages &lt;- str_c('https://listserv.umd.edu', urls)
 head(list_of_pages)</code></pre>
-<pre><code>## [1] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810d&amp;amp;L=ecolog-l&quot;
-## [2] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810c&amp;amp;L=ecolog-l&quot;
-## [3] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810b&amp;amp;L=ecolog-l&quot;
-## [4] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810a&amp;amp;L=ecolog-l&quot;
-## [5] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1809e&amp;amp;L=ecolog-l&quot;
-## [6] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1809d&amp;amp;L=ecolog-l&quot;</code></pre>
+<pre><code>## [1] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1811b&amp;amp;L=ecolog-l&quot;
+## [2] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1811a&amp;amp;L=ecolog-l&quot;
+## [3] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810e&amp;amp;L=ecolog-l&quot;
+## [4] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810d&amp;amp;L=ecolog-l&quot;
+## [5] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810c&amp;amp;L=ecolog-l&quot;
+## [6] &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1810b&amp;amp;L=ecolog-l&quot;</code></pre>
+</div>
+<div id="a-function-to-get-the-relevant-information" class="section level2">
+<h2>A function to get the relevant information</h2>
+<div id="titles-posted-in-the-last-20-years" class="section level3">
+<h3>(titles posted in the last 20 years)</h3>
 <p>To actually get the data from the urls, I wrote a small functions to get the necessary information from each page. Then apply the function to the list of urls.</p>
 <pre class="r"><code>#I need to create a custom function that gets all postings from each page
 ecolog_p &lt;- function(url){
   webpage &lt;- read_html(url)
   Sys.sleep(0.2)
-  webpage %&gt;% html_nodes(&quot;ul:nth-child(3) a&quot;) %&gt;%
+  webpage %&gt;% html_nodes(&quot;tr:nth-child(3) a&quot;) %&gt;%
               html_text
 }
-# Here is an example of how this works. I'm not scrapping the entire list here, because it takes about two hours to run with good internet connections.
-# ecolog_postings_1_25 &lt;- lapply(list_of_pages[1:25], ecolog_p)</code></pre>
+
+# ecolog_postings&lt;- lapply(list_of_pages, ecolog_p)</code></pre>
+<p>I commented out the last line of code so it’s not run here, because it takes about 2 hours to get all the data with a good internet connections. If anyone were to run this line of code, I recommend breaking it down into chuncks.</p>
+</div>
 </div>
 </div>
 <div id="part-2.-text-mining-of-the-tiles" class="section level1">
 <h1>Part 2. Text mining of the tiles</h1>
 <p>The idea behind this section is simple: I want to determine if a post is advertising a PhD, postdoc, or faculty position.</p>
-<p>I will be using a sample page first from the first week of 2018:</p>
-<pre class="r"><code>url &lt;- &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1804a&amp;L=ecolog-l&quot;
-webpage &lt;- read_html(url)
-page_4i18 &lt;- html_text(html_nodes(webpage,&quot;ul:nth-child(3) a&quot;)) #First download the webpage</code></pre>
-<p>As of today, the archive is down, and no historical posts can be viewed, I will post the data I have downloaded a few months ago later.</p>
-<p>Characterizing the target of a post can be complicated, but I don’t need to be precise about every post here given the amount of posts (more than 10,000 across over 18 years). So I took a simple approach of counting the occurance of key words such as PhD to determine the abundance of each level of posts. By reading through a few months worth of posts myselt, I confirmed that the key words are good indicator of the content of the posts, and that they are rarely repeated in a single title.</p>
-<pre class="r"><code>#I wrote another function to count the apearance of different key words.
+<div id="a-function-to-characterize-the-type-of-positions-from-only-titles" class="section level2">
+<h2>A function to characterize the type of positions from only titles</h2>
+<p>Characterizing the target of a post can be complicated, but I don’t need to be precise about every post here given the amount of posts (more than 10,000 across over 18 years). So I took a simple approach of counting the occurrence of key words such as PhD to determine the abundance of each level of posts. By reading through a few months’ worth of posts myself, I confirmed that the key words are good indicator of the content of the posts, and that they are rarely repeated in a single title.</p>
+<pre class="r"><code>#I wrote another function to count the appearance of different key words.
 position_breakdown &lt;- function(x){
   x = str_to_lower(x)
   u = sum(str_count(x, &quot;reu|intern|volunteer&quot;))
@@ -236,17 +219,29 @@ position_breakdown &lt;- function(x){
   o = sum(str_count(x, &quot;technician|assistant|manager&quot;))
   l = length(x)
   y = data.frame(undergrad = u, ms = m, phd = phd, postdoc = po, 
-                faculty = f, otherjob = o, l = l)
-  y}
-
-# An example of using this function.
-position_breakdown(page_4i18)</code></pre>
-<pre><code>##   undergrad ms phd postdoc faculty otherjob l
-## 1         0  0   0       0       0        0 0</code></pre>
+                faculty = f, otherjob = o, total = l)
+  y}</code></pre>
 </div>
-<div id="part-3.-analysing-the-data" class="section level1">
-<h1>Part 3. Analysing the data</h1>
-<p>I’m still working on this part of the project, so stay tuned!</p>
+<div id="get-a-small-sample-dataset" class="section level2">
+<h2>Get a small sample dataset:</h2>
+<p>I will be using a sample page from the first week of 2018:</p>
+<pre class="r"><code>url &lt;- &quot;https://listserv.umd.edu/cgi-bin/wa?A1=ind1804a&amp;L=ecolog-l&quot;
+webpage &lt;- read_html(url)
+page_4i18 &lt;- html_text(html_nodes(webpage,&quot;tr:nth-child(3) a&quot;)) #First download the webpage
+# A quick note that I used the web tool &quot;Selector Gadget&quot;&quot; to generate the CSS selectors. i.e. the &quot;&quot;tr:nth-child(3) a&quot;&quot; part</code></pre>
+</div>
+<div id="look-at-data-using-the-sample-dataset" class="section level2">
+<h2>Look at data using the sample dataset:</h2>
+<pre class="r"><code># An example of using the position_breakdown function.
+position_breakdown(page_4i18)</code></pre>
+<pre><code>##   undergrad ms phd postdoc faculty otherjob total
+## 1         3  5   8      14       4       15    89</code></pre>
+<p>As for this particular week, you can see that their are increasing numbers of jobs with increasing training, from undergrad to master to phD to postdoc positions. However, this trend stops at the postdoc level, and there are only 4 faculty positions. <strong>The munber of posdoc positions is 3.5 times that of faculty positions in this one week, supporting my first hyothesis that there is a oversupply of phds</strong> I will analyze the full dataset in the next section to test whether this trend holds.</p>
+</div>
+</div>
+<div id="part-3.-analyzing-the-data" class="section level1">
+<h1>Part 3. Analyzing the data</h1>
+<p>I’m still cleaning the code up, so please stay tuned.</p>
 </div>
 
 
