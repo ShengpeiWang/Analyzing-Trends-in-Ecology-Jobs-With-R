@@ -2,7 +2,7 @@
 title: "Trends in Ecology Jobs by Analyzing Ecolog Posts With R"
 author: "Sheng Pei Wang"
 date: "Nov 13, 2018"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -11,30 +11,27 @@ knitr::opts_chunk$set(echo = TRUE)
   
 # Why and what am I doing here?
 ## Back story
-I have subscribed for the Ecolog listserv for a long time, hoping for the perfect position just for me. But given the growing competition for the stagnating job market in academia, I decided to plunge into the "real world" to pursue my interests in understanding the world through thinking, experimentation, and analysis. Before I leave my academic evolutionary ecologist dream behind, I want to figure out whether this one source of data supports the broader trend in the academic job market. Specificall, I want to address these three questions:   
+I have subscribed for the Ecolog listserv for a long time, hoping for the perfect position just for me. But given the growing competition for the stagnating job market in academia, I decided to plunge into the "real world" to pursue my interests in understanding the world through thinking, experimentation, and analysis. Before I leave my academic evolutionary ecologist dream behind, I want to figure out whether this one source of data supports the broader trend in the academic job market. Specifically, I want to address these three questions:   
 
 ## Questions
-1. Is there an over supply? In other words, are lower level positions more abundant than higher level positions. If so, I should observe number of posts for PhD > postdoc > faculty    
+1. Is there an oversupply? In other words, are lower level positions more abundant than higher level positions. If so, I should observe number of posts for PhD > postdoc > faculty    
 2. Is there growing supply of PhD over time? This should show up as an increase in numbers of PhD or postdoc positions.     
 3. On the other hand, is the job market stagnating? This would be represented by faculty level positions being constant over time?
 
 ## Methods
-All of ecolog's posts are available online, dating back to 2000. This makes this a great data source, but the amount of data is not trivial to process. I decided to focus only on the titles of the posts, because it is usually pretty easy to tell what audience the posts target.   
+All ecolog's posts are available online, dating back to 2000. This makes this a great data source, but the amount of data is not trivial to process. I decided to focus only on the titles of the posts, because it is usually easy to tell what audience the posts target.   
 To get the data, I need to **scrap the website** for titles of every posts and to decide the target level (PhD/postdoc/faculty) of each post using **text mining**.
 
 # Part 1. Getting the data
 
 ###Set up the R environment:
 ```{r, message = F}
-library('rvest')    # Parsing of HTML/XML files 
+library(rvest)    # Parsing of HTML/XML files 
 library(tidyverse)  # General-purpose data wrangling
 library(stringr)    # String manipulation
-library(ggplot2)
 
-library(tidytext)       # provides additional text mining functions
-
-library(rebus)      # Verbose regular expressions
-library(lubridate)  # Eases DateTime manipulation
+library(zoo)        # for the yearmon class
+library(lme4)
 ```
 
 ## Creating the list of webpages to scrap
@@ -44,18 +41,22 @@ The actual R code file named "Fun Ecolog Data Scrapping Project.R" has the codes
 I notice that the posts were stored on different pages grouped by weeks, and the master list is at https://listserv.umd.edu/archives/ecolog-l.html. So I can scrap the master list to get the weekly lists' url's, and then I can scrape the weekly lists to get the titles of every post:
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 page_archive <- read_html("https://listserv.umd.edu/archives/ecolog-l.html")
 # Some times this command end up with an error message of "Timeout", because the archive's server is picky about the connections. My home network tend to do this. The only advice I have is to be patient and maybe try a different network if possible.
 
 # I noticed that by interacting with html source code of the full list, all the weekly links are stored under the "li" node
 pages_info  <- page_archive %>%  html_nodes("li")  # Scrap the weekly link info from main page
 
+list_of_weeks <- page_archive %>%  html_nodes("li") %>% html_text()
+list_of_weeks <- list_of_weeks[-c(1:4)]
+
 urls <- lapply(pages_info, function(x) str_sub(x,15, 52)) # get only the url part, which is between 15-52 characters.
 urls <- urls[-c(1:4)] # remove the first 4 items that are not related to our purpose.
 
 # Making the list of urls
 list_of_pages <- str_c('https://listserv.umd.edu', urls)
+
 head(list_of_pages)
 ```
 
@@ -74,7 +75,7 @@ ecolog_p <- function(url){
 # ecolog_postings<- lapply(list_of_pages, ecolog_p)
 ```
 
-I commented out the last line of code so it's not run here, because it takes about 2 hours to get all the data with a good internet connections. If anyone were to run this line of code, I recommend breaking it down into chuncks.
+I commented out the last line of code so it's not run here, because it takes about 2 hours to get all the data with a good internet connections. If anyone were to run this line of code, I recommend breaking it down into chunks.
 
 # Part 2. Text mining of the tiles
 The idea behind this section is simple: I want to determine if a post is advertising a PhD, postdoc, or faculty position. 
@@ -113,8 +114,182 @@ page_4i18 <- html_text(html_nodes(webpage,"tr:nth-child(3) a")) #First download 
 position_breakdown(page_4i18)
 ```
 
-As for this particular week, you can see that their are increasing numbers of jobs with increasing training, from undergrad to master to phD to postdoc positions. However, this trend stops at the postdoc level, and there are only 4 faculty positions. **The munber of posdoc positions is 3.5 times that of faculty positions in this one week, supporting my first hyothesis that there is a oversupply of phds** I will analyze the full dataset in the next section to test whether this trend holds.
+As for this particular week, you can see their are increasing numbers of jobs with increasing training, from undergrad to master to PhD to postdoc positions. However, this trend stops at the postdoc level, and there are only 4 faculty positions. **The number of postdoc positions is 3.5 times that of faculty positions in this one week, supporting my first hypothesis that there is a oversupply of PhDs** I will analyze the full dataset in the next section to test whether this trend holds.
 
 
 # Part 3. Analyzing the data
-I'm still cleaning the code up, so please stay tuned. 
+## Data cleanup
+I will be brief here. I scraped all the webpages available up until now (11/25/18) and saved the list as "data_ecolog_post_Nov_2018.R". And I will measure the number of each type of postings as explained above. I also added the time information. Then I summarized each month's data as a single entry, because the fourth week of a month is often less than 7 days, which will skew the analyses.
+```{r}
+load("data_ecolog_post_Nov_2018.R")
+data_positions <- lapply(data_ecolog_post_updated, position_breakdown)
+
+list_of_month <- 
+  sapply(list_of_weeks, function(x) strsplit(x, ",")[[1]]) %>% 
+  matrix(ncol=2, byrow=T)
+
+list_of_months <- list_of_month[,1] %>% 
+  as.yearmon()
+
+data_jobs <- 
+  do.call(rbind.data.frame, data_positions) %>% 
+  mutate(month = list_of_months)
+head(data_jobs)
+
+data_jobs_month <-
+  data_jobs %>% 
+  group_by(month) %>% 
+  summarise_all(sum) 
+head(data_jobs_month)
+
+# reshaping the dataset into the long format for visualization and analysis
+data_jobs_month_long <- 
+  data_jobs_month %>% 
+  gather(level, number_of_posts, -month) %>% 
+  mutate(level = fct_recode(as.factor(level), 
+                            Faculty = "faculty",
+                            Postdoc = "postdoc",
+                            PhD = "phd",
+                            MS = "ms",
+                            Undergrad = "undergrad",
+                            other_job = "otherjob"),
+         level = fct_relevel(level,
+                             "Faculty",
+                             "Postdoc",
+                             "PhD",
+                             "MS",
+                             "Undergrad",
+                             "other_job"))
+```
+
+## Data visualization
+Let's first look at the the data for all the levels
+```{r}
+ggplot(data_jobs_month_long %>% filter(level != "total"), 
+       aes(month, number_of_posts, color = level)) +
+  geom_point() +
+  geom_smooth(method = 'loess') +
+  scale_colour_hue(c = 200) +
+  theme_classic()
+```
+There is a pretty clear trend of increase over time across all levels besides undergrad level. **Faculty level jobs increased less compare to PhD or postdoc level jobs.** There are more postings about other types of jobs, and the growth in that section is rapid. 
+
+Is the overall trend of increase real? Could it be that ecolog is becoming more popular over time?
+```{r}
+ggplot(data_jobs_month_long %>% filter(level == "total"), 
+       aes(month, number_of_posts)) +
+  geom_point() +
+  geom_smooth(method = 'loess') +
+  theme_classic()
+```
+More people are posting on ecolog now than 15 years ago, so ecolog is getting more popular. There is a slight dip around 2004, and I would like to explore this more later. But I don't know if this is the driving force behind the increase in job postings. 
+
+I will explore the proportional changes in job postings to understand whether the increase in job postings is driven by the growing popularity of ecolog.
+First need to convert the count data into proportions:
+```{r}
+data_jobs_proportions <-
+  data_jobs_month %>% 
+  mutate(other = undergrad + phd + postdoc + faculty + otherjob,
+         other = total - other,
+         other = other/total,
+         undergrad = undergrad/total,
+         ms = ms/total,
+         phd = phd/total,
+         postdoc = postdoc/total,
+         faculty = faculty/total,
+         otherjob = otherjob/total)
+  
+data_jobs_proportions_long <- 
+  data_jobs_proportions %>% 
+  gather(level, proportion_of_posts, -month) %>% 
+  mutate(level = fct_recode(as.factor(level), 
+                            Faculty = "faculty",
+                            Postdoc = "postdoc",
+                            PhD = "phd",
+                            MS = "ms",
+                            Undergrad = "undergrad",
+                            other_job = "otherjob"),
+         level = fct_relevel(level,
+                             "Faculty",
+                             "Postdoc",
+                             "PhD",
+                             "MS",
+                             "Undergrad",
+                             "other_job"))
+```
+The code here can be streamlined, and I would welcome any comments.
+
+Let's first plot all the proportional data:
+```{r}
+ggplot(data_jobs_proportions_long %>% filter(level != "total"), 
+       aes(month, proportion_of_posts, color = level)) +
+  geom_point() +
+  geom_smooth(method = 'loess') +
+  scale_colour_hue(c = 200) +
+  theme_classic()
+```
+This is interesting, that the proportion of job-posts has increased over time. Even though most of the posts are not clearly job related, the number of non-job-related postings is in stark decline in terms of proportions.
+**So ecolog has become more popular over time, but it's popularity as a job board is growing even faster.**
+
+This figure does not show how the job posting proportions have changed, so let's look at just job-related posts.
+```{r}
+ggplot(data_jobs_proportions_long %>% 
+         filter(level %in% c("Faculty",
+                             "Postdoc",
+                             "PhD",
+                             "MS",
+                             "Undergrad",
+                             "other_job")), 
+       aes(month, proportion_of_posts, color = level)) +
+  geom_point() +
+  geom_smooth(method = 'loess') +
+  scale_colour_hue(c = 200) +
+  theme_classic()
+```
+Again, the increasing proportion of nearly all types of job posts is interesting. 
+
+**The results partially support my first hypothesis that there is an oversupply of labor into the academic job market in ecology. Over the entire 18 years of existence of ecolog, the number of posts advertising for postdoc positions has been consistently higher than for faculty positions.** However, advertising for PhD and master student positions has been lower than for faculty positions. This is by no means a new finding, but it is interesting to see it represented in ecolog job posts. 
+
+*The above conlusions have to be taken with a grain of salt though, given that the data is solely about ecolog. From my experience, advertising for student positions is more limited to lab webpage and twitter than for postdocs or faculty, the latter usually requires a broader search. So I don't think the pattern of "undersupply" of students shown in ecolog's posts represents the broader pattern.* 
+
+
+
+## Formal analysis
+
+I first altered the month data a little, so the mean and the std is close to each other. This will allow the models to converge and has no impact on the statistical implications.
+```{r}
+data_jobs_fit <-
+  data_jobs_month_long %>% 
+  filter(level != "total") %>% 
+  mutate(month_n = as.numeric(month)-2000)
+```
+
+Fit a linear mixed model to understand the effects of time on each level. I specified that both the intercept and slopes can vary for each job post level.
+```{r}
+fit_time <- lmer(number_of_posts ~ month_n + (1 + month_n|level),
+                 data = data_jobs_fit)
+
+summary(fit_time)
+```
+
+The coefficient for the fixed effect is 1.66 with t value = 5.4, Suggesting an overall increase of number of posts over time. This is consistent with the figures.
+```{r}
+fit_time_null <- lmer(number_of_posts ~ (1 |level),
+                 data = data_jobs_fit)
+anova(fit_time_null, fit_time)
+```
+I used a model comparison with the null model to test the significance of the increase, and the statistical support for the increasing trend is very strong.
+
+Let's then look at the different levels:
+```{r}
+ranef(fit_time) 
+```
+These are the random effects, basically the difference among the different levels. I'm particularly interested in the slope coefficients (month_n column). A few conclusions can be drawn:   
+    + Increase in "other jobs"" is the fastest.
+    + **The number of faculty positions closely followed the overall trend, but increase in postdoc positions is much faster than faculty positions.**
+    + The increase in MS positions is the slowest. Notice that the actual slope would be -0.86 + 1.66, which is still positive.
+
+**These results support my hypotheses 2 and 3:**
+    + There is an increase in labor supply in terms of both PhD and postdocs, but the over-supply of postdoc is a lot stronger.
+    + The job market defined by faculty job availability is stagnating in terms of closely matching the overall trend of job postings over time.
+
